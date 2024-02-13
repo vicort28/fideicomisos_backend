@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tabla de Empleados</title>
+</head>
+<body>
+    <h1>Tabla de Empleados</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Número de Empleado</th>
+                <th>Nombre</th>
+                <th>Apellido Paterno</th>
+                <th>Apellido Materno</th>
+                <th>Teléfono</th>
+                <th>Domicilio</th>
+                <th>Correo</th>
+                <th>Unidad</th>
+                <th>Antigüedad</th>
+                <th>RFC</th>
+                <th>CURP</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for empleado in empleados %}
+                <tr>
+                    <td>{{ empleado.n_empleado }}</td>
+                    <td>{{ empleado.nombre }}</td>
+                    <td>{{ empleado.apellido_paterno }}</td>
+                    <td>{{ empleado.apellido_materno }}</td>
+                    <td>{{ empleado.telefono }}</td>
+                    <td>{{ empleado.domicilio }}</td>
+                    <td>{{ empleado.correo }}</td>
+                    <td>{{ empleado.unidad }}</td>
+                    <td>{{ empleado.antiguedad }}</td>
+                    <td>{{ empleado.rfc }}</td>
+                    <td>{{ empleado.curp }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
