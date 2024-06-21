@@ -7,23 +7,31 @@ class EmpleadoSerializer(serializers.ModelSerializer):
         fields = '__all__' 
         
 class PrestamoSerializer(serializers.ModelSerializer):
+    nombre_empleado = serializers.CharField(source='empleado.nombre', read_only=True)
+    apellido_paterno_empleado = serializers.CharField(source='empleado.apellido_paterno', read_only=True)
+    apellido_materno_empleado = serializers.CharField(source='empleado.apellido_materno', read_only=True)
+
     class Meta:
         model = Prestamo
-        fields = ['empleado_id', 'cantidad', 'quincenas', 'estatus', 'pagoporquincena']
+        fields = ['id', 'cantidad', 'quincenas', 'nombre_empleado', 'apellido_paterno_empleado', 'apellido_materno_empleado', 'aprobado']
+
 
 class SeguroVidaSerializer(serializers.ModelSerializer):
     class Meta:
         model = SeguroVida
-        fields = ['empleado_id', 'fecha_fallecimiento', 'domicilio', 'telefono', 'beneficiario']
+        fields = '__all__' 
+
+
 
 class GastosFunerariosSerializer(serializers.ModelSerializer):
     class Meta:
         model = GastosFunerarios
-        fields = ['empleado_id', 'parentesco']
+        fields = ['empleado_id', 'madre', 'padre', 'esposo', 'hijo']
+
 
 
 
 class PrestamoAprobadoSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrestamoAprobado
-        fields = '__all__'  
+        fields = ['empleado_id', 'cantidad', 'quincenas', 'estatus', 'pagoporquincena', 'nombre_empleado,', 'apellido_paterno_empleado', 'apellido_materno_empleado']

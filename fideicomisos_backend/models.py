@@ -55,24 +55,22 @@ class SeguroVida(models.Model):
     def __str__(self):
         return f'Seguro de Vida de {self.beneficiario}'
 
-class GastosFunerarios(models.Model):
-    OPCIONES_PARENTESCO = [
-        ('Padre', 'Padre'),
-        ('Madre', 'Madre'),
-        ('Esposo', 'Esposo'),
-        ('Hijo', 'Hijo'),
-    ]
 
-    empleado = models.ForeignKey(Empleado, related_name='gastos_funerarios', on_delete=models.CASCADE)
-    parentesco = models.CharField(max_length=10, choices=OPCIONES_PARENTESCO, null=True)
+class GastosFunerarios(models.Model):
+    empleado = models.ForeignKey(Empleado, related_name='gastos_funerarios', on_delete=models.CASCADE, null=True)
+    padre = models.BooleanField(default=False)
+    madre = models.BooleanField(default=False)
+    hijo = models.BooleanField(default=False)
+    esposo = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Gastos Funerarios para {self.empleado.nombre} {self.empleado.apellido_paterno}"
-    
+        return f"Gastos Funerarios para {self.empleado}"
 class PrestamoAprobado(models.Model):
     empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE)
     cantidad = models.CharField(max_length=10)
     quincenas = models.IntegerField()
+    pago_por_quincena = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     fecha_aprobacion = models.DateField(auto_now_add=True)
 
     nombre_empleado = models.CharField(max_length=100, blank=True)
