@@ -33,7 +33,8 @@ urlpatterns  = [
     path('prestamos/aprobados/', views.obtener_registros_aprobados, name='obtener_registros_aprobados'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    #path('prestamos/empleado/<int:empleado_id>/actualizar/', views.actualizar_prestamo_por_empleado, name='actualizar_prestamo_por_empleado'),
+   #path('prestamos/empleado/<int:empleado_id>/actualizar/', views.actualizar_prestamo_por_empleado, name='actualizar_prestamo_por_empleado'),
     path('prestamos/<int:empleado_id>/aprobar/', views.aprobar_prestamo_por_empleado, name='aprobar_prestamo_por_empleado'),
     path('prestamos/<int:prestamo_id>/actualizar/', views.actualizar_prestamo, name='actualizar-prestamo'), 
+    path('seguros-vida/<int:seguro_vida_id>/actualizar/', views.actualizar_seguro_vida, name='actualizar_seguro_vida'),
 ] 

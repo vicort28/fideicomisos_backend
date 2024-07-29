@@ -306,3 +306,17 @@ def actualizar_prestamo(request, prestamo_id):
         serializer.save()
         return Response(serializer.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT'])
+def actualizar_seguro_vida(request, seguro_vida_id):
+    try:
+        seguro_vida = SeguroVida.objects.get(id=seguro_vida_id)
+    except SeguroVida.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    serializer = SeguroVidaSerializer(seguro_vida, data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
