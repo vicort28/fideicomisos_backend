@@ -2,10 +2,10 @@ from collections import Counter
 from datetime import timezone
 import traceback
 from django.http import JsonResponse
-from .models import Prestamo, PrestamoAprobado, SeguroVida, GastosFunerarios
+from .models import Prestamo, SeguroVida, GastosFunerarios
 from .models import Empleado
 from rest_framework.decorators import api_view
-from .serializers import PrestamoAprobadoSerializer, PrestamoSerializer, EmpleadoSerializer, SeguroVidaSerializer, GastosFunerariosSerializer
+from .serializers import  PrestamoSerializer, EmpleadoSerializer, SeguroVidaSerializer, GastosFunerariosSerializer
 from django.views.decorators.csrf import csrf_exempt
 import json 
 from django.shortcuts import render
@@ -20,6 +20,7 @@ from django.db.models import Count
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
+from django.db import transaction
 
 
 
@@ -34,7 +35,7 @@ from .models import Prestamo, Empleado
 from .serializers import PrestamoSerializer
 
 # views.py
-
+from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -48,18 +49,22 @@ def guardar_formulario(request):
         datos_formulario1 = request.data
         empleado_id = datos_formulario1.get('empleado_id')
 
+        if not empleado_id:
+            return JsonResponse({'error': 'empleado_id es requerido'}, status=400)
+
         try:
-            empleado = Empleado.objects.get(pk=empleado_id)
-        except ObjectDoesNotExist:
-            return JsonResponse({'error': 'Empleado no encontrado o ID de empleado no válido'}, status=400)
+            empleado = Empleado.objects.get(id=empleado_id)
+        except Empleado.DoesNotExist:
+            return JsonResponse({'error': 'El empleado no existe'}, status=404)
+
+        # Asignar el empleado encontrado al campo de empleado en lugar de modificar el id directamente
+        datos_formulario1['empleado'] = empleado.id
 
         serializer = PrestamoSerializer(data=datos_formulario1)
 
         if serializer.is_valid():
-            # Guarda el préstamo y obtén el objeto creado
-            prestamo = serializer.save(empleado=empleado)
-            
-            # Calcula el pago por quincena y actualiza el objeto
+            prestamo = serializer.save()
+
             cantidad = float(prestamo.cantidad.replace('$', '').replace(',', ''))
             quincenas = float(prestamo.quincenas)
             prestamo.pagoporquincena = cantidad / quincenas
@@ -71,26 +76,50 @@ def guardar_formulario(request):
     else:
         return JsonResponse({'error': 'Método no permitido'}, status=405)
 
+
+class EmpleadoViewSet(viewsets.ModelViewSet):
+    queryset = Empleado.objects.all()
+    serializer_class = EmpleadoSerializer
+
+class PrestamoViewSet(viewsets.ModelViewSet):
+    queryset = Prestamo.objects.all()
+    serializer_class = PrestamoSerializer
+
+
 @api_view(['POST'])
-def guardar_seguro_vida(request):
+@csrf_exempt
+def registrar_empleado(request):
     if request.method == 'POST':
-        datos_seguro_vida = request.data
-        serializer = SeguroVidaSerializer(data=datos_seguro_vida)
-
+        serializer = EmpleadoSerializer(data=request.data)
         if serializer.is_valid():
-            empleado_id = datos_seguro_vida.get('empleado_id')
-            
-            try:
-                empleado = Empleado.objects.get(pk=empleado_id)
-            except Empleado.DoesNotExist:
-                return Response({'error': 'Empleado no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+            serializer.save()
+            return Response({'mensaje': 'Empleado registrado correctamente'}, status=201)
+        return Response(serializer.errors, status=400)
 
-            serializer.save(empleado=empleado)
-            return Response({'mensaje': 'Seguro de vida registrado correctamente'}, status=status.HTTP_201_CREATED)
-        else:
-            return Response({'error': 'Datos del seguro de vida no válidos'}, status=status.HTTP_400_BAD_REQUEST)
-    else:
-        return Response({'error': 'Método no permitido'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+@api_view(['POST'])
+def registrar_seguros_vida(request):
+    empleado_id = request.data.get('empleado_id')
+    seguros_data = request.data.get('seguros', [])
+
+    if not empleado_id:
+        return Response({'error': 'El empleado_id es obligatorio.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        empleado = Empleado.objects.get(id=empleado_id)
+    except Empleado.DoesNotExist:
+        return Response({'error': 'Empleado no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+    with transaction.atomic():  # Usar transacciones para asegurar consistencia
+        for seguro_data in seguros_data:
+            seguro_data['empleado'] = empleado.id  # Asociar el seguro al empleado
+            serializer = SeguroVidaSerializer(data=seguro_data)
+            if serializer.is_valid():
+                serializer.save()
+            else:
+                return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    
+    return Response({'mensaje': 'Seguros de vida registrados correctamente'}, status=status.HTTP_201_CREATED)
     
 
 @api_view(['POST'])
@@ -120,21 +149,17 @@ def guardar_gastos_funerarios(request):
 
 
 
-
-
-
-
 @csrf_exempt
 def agregar_empleado(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body.decode('utf-8'))
             nuevo_empleado = Empleado(
-                nombre=data.get('nombre', ''),
-                apellido_paterno=data.get('apellido_paterno', ''),
-                apellido_materno=data.get('apellido_materno', ''),
-                n_empleado=data.get('n_empleado', ''),
-                telefono=data.get('telefono', ''),
+                nombres=data.get('nombres', ''),
+                apellidoPaterno=data.get('apellidoPaterno', ''),
+                apellidoMaterno=data.get('apellidoMaterno', ''),
+                numeroEmpleado=data.get('numeroEmpleado', ''),
+                telefono1=data.get('telefono', ''),
                 domicilio=data.get('domicilio', ''),
                 correo=data.get('correo', ''),
                 unidad=data.get('unidad', ''),
@@ -173,9 +198,10 @@ def obtener_datos_empleado(request, empleado_id):
 def empleados_con_registros(request, *args, **kwargs):
     try:
         empleados_con_registros = Empleado.objects.annotate(
-            num_prestamos=Count('prestamos'),
-            num_seguros_vida=Count('seguros_vida')
-        ).filter(Q(num_prestamos__gt=0) | Q(num_seguros_vida__gt=0))
+            num_prestamos=Count('prestamo'),
+            num_seguros_vida=Count('seguros_vida'),
+            num_gastos_funerarios=Count('gastos_funerarios')  # Contamos los gastos funerarios también
+        ).filter(Q(num_prestamos__gt=0) | Q(num_seguros_vida__gt=0) | Q(num_gastos_funerarios__gt=0))
 
         serializer = EmpleadoSerializer(empleados_con_registros, many=True)
 
@@ -183,29 +209,38 @@ def empleados_con_registros(request, *args, **kwargs):
         for index, empleado_data in enumerate(data):
             empleado_id = empleado_data['id']
 
-            prestamos = PrestamoSerializer(Empleado.objects.get(pk=empleado_id).prestamos.all(), many=True).data
+            prestamos = PrestamoSerializer(Empleado.objects.get(pk=empleado_id).prestamo.all(), many=True).data
             seguros_vida = SeguroVidaSerializer(Empleado.objects.get(pk=empleado_id).seguros_vida.all(), many=True).data
+            gastos_funerarios = GastosFunerariosSerializer(Empleado.objects.get(pk=empleado_id).gastos_funerarios.all(), many=True).data
 
             data[index]['prestamos'] = prestamos
             data[index]['seguros_vida'] = seguros_vida
+            data[index]['gastos_funerarios'] = gastos_funerarios  # Añadimos los gastos funerarios
 
-       
         return Response(data)
     except Exception as e:
         return Response({'error': str(e), 'traceback': traceback.format_exc()}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
-
-
 @api_view(['GET'])
 def obtener_detalles_seguro_vida_por_empleado(request, empleado_id, *args, **kwargs):
     try:
-        detalle_seguro_vida = SeguroVida.objects.get(empleado_id=empleado_id)
-        serializer = SeguroVidaSerializer(detalle_seguro_vida)
+        detalle_seguro_vida = SeguroVida.objects.filter(empleado_id=empleado_id)
+        serializer = SeguroVidaSerializer(detalle_seguro_vida, many=True)
         return Response(serializer.data)
     except SeguroVida.DoesNotExist:
         return Response({"error": "Detalle de seguro de vida no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+def obtener_detalles_prestamo_por_empleado(request, empleado_id, *args, **kwargs):
+    try:
+        detalle_prestamo = Prestamo.objects.filter(numero_empleado=empleado_id)
+        serializer = PrestamoSerializer(detalle_prestamo, many=True)
+        return Response(serializer.data)
+    except Prestamo.DoesNotExist:
+        return Response({"error": "Detalle de préstamo no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
 
 @api_view(['GET'])
@@ -247,50 +282,50 @@ def gastos_funerarios_view(request, empleado_id):
 
 
 
-@csrf_exempt
-@api_view(['POST'])
-def aprobar_prestamo(request, prestamo_id):
-    if request.method == 'POST':
-        try:
-            prestamo = Prestamo.objects.get(id=prestamo_id)
-            if prestamo.aprobado:
-                return JsonResponse({'error': 'Este préstamo ya ha sido aprobado'}, status=400)
-            prestamo.aprobado = True
-            prestamo.save()
+# @csrf_exempt
+# @api_view(['POST'])
+# def aprobar_prestamo(request, prestamo_id):
+#     if request.method == 'POST':
+#         try:
+#             prestamo = Prestamo.objects.get(id=prestamo_id)
+#             if prestamo.aprobado:
+#                 return JsonResponse({'error': 'Este préstamo ya ha sido aprobado'}, status=400)
+#             prestamo.aprobado = True
+#             prestamo.save()
 
-            prestamo_aprobado = PrestamoAprobado(
-                empleado=prestamo.empleado,
-                cantidad=prestamo.cantidad,
-                quincenas=prestamo.quincenas,
-            )
-            prestamo_aprobado.save()
+#             prestamo_aprobado = PrestamoAprobado(
+#                 empleado=prestamo.empleado,
+#                 cantidad=prestamo.cantidad,
+#                 quincenas=prestamo.quincenas,
+#             )
+#             prestamo_aprobado.save()
 
-            return JsonResponse({'message': 'Préstamo aprobado correctamente.'})
-        except Prestamo.DoesNotExist:
-            return JsonResponse({'error': 'Préstamo no encontrado.'}, status=404)
-    else:
-        return JsonResponse({'error': 'Método no permitido.'}, status=405)
+#             return JsonResponse({'message': 'Préstamo aprobado correctamente.'})
+#         except Prestamo.DoesNotExist:
+#             return JsonResponse({'error': 'Préstamo no encontrado.'}, status=404)
+#     else:
+#         return JsonResponse({'error': 'Método no permitido.'}, status=405)
     
-@api_view(['POST'])
-def aprobar_prestamo_por_empleado(request, empleado_id):
-    try:
-        empleado = Empleado.objects.get(id=empleado_id)
-        prestamo = Prestamo.objects.filter(empleado=empleado, aprobado=False).first()
-        if prestamo:
-            prestamo.aprobado = True
-            prestamo.save()
-            return Response({"message": "Préstamo aprobado correctamente"}, status=status.HTTP_200_OK)
-        else:
-            return Response({"message": "No hay préstamos pendientes para este empleado"}, status=status.HTTP_404_NOT_FOUND)
-    except Empleado.DoesNotExist:
-        return Response({"message": "Empleado no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+# @api_view(['POST'])
+# def aprobar_prestamo_por_empleado(request, empleado_id):
+#     try:
+#         empleado = Empleado.objects.get(id=empleado_id)
+#         prestamo = Prestamo.objects.filter(empleado=empleado, aprobado=False).first()
+#         if prestamo:
+#             prestamo.aprobado = True
+#             prestamo.save()
+#             return Response({"message": "Préstamo aprobado correctamente"}, status=status.HTTP_200_OK)
+#         else:
+#             return Response({"message": "No hay préstamos pendientes para este empleado"}, status=status.HTTP_404_NOT_FOUND)
+#     except Empleado.DoesNotExist:
+#         return Response({"message": "Empleado no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
     
-@api_view(['GET'])
-def obtener_registros_aprobados(request):
-    prestamos_aprobados = Prestamo.objects.filter(aprobado=True)
-    serializer = PrestamoSerializer(prestamos_aprobados, many=True)
-    return Response(serializer.data)
+# @api_view(['GET'])
+# def obtener_registros_aprobados(request):
+#     prestamos_aprobados = Prestamo.objects.filter(aprobado=True)
+#     serializer = PrestamoSerializer(prestamos_aprobados, many=True)
+#     return Response(serializer.data)
 
 
 
