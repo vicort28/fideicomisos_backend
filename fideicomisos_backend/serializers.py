@@ -68,7 +68,7 @@ class SeguroVidaSerializer(serializers.ModelSerializer):
 class GastosFunerariosSerializer(serializers.ModelSerializer):
     class Meta:
         model = GastosFunerarios
-        fields = ['empleado_id', 'madre', 'padre', 'esposo', 'hijo']
+        fields = '__all__' 
 
 
 

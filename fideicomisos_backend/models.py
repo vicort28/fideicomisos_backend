@@ -76,7 +76,7 @@ class GastosFunerarios(models.Model):
         return f"Gastos Funerarios para {self.empleado}"
 
 class PrestamoAprobado(models.Model):
-    
+  
     cantidad = models.CharField(max_length=10)
     quincenas = models.IntegerField()
     pago_por_quincena = models.DecimalField(max_digits=10, decimal_places=2, default=0)

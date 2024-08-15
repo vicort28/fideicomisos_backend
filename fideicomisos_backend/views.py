@@ -236,7 +236,7 @@ def obtener_detalles_seguro_vida_por_empleado(request, empleado_id, *args, **kwa
 @api_view(['GET'])
 def obtener_detalles_prestamo_por_empleado(request, empleado_id, *args, **kwargs):
     try:
-        detalle_prestamo = Prestamo.objects.filter(numero_empleado=empleado_id)
+        detalle_prestamo = Prestamo.objects.filter(empleado__id=empleado_id)
         serializer = PrestamoSerializer(detalle_prestamo, many=True)
         return Response(serializer.data)
     except Prestamo.DoesNotExist:
@@ -245,12 +245,16 @@ def obtener_detalles_prestamo_por_empleado(request, empleado_id, *args, **kwargs
 
 @api_view(['GET'])
 def obtener_detalles_prestamo_por_empleado(request, empleado_id, *args, **kwargs):
+    print(f"Empleado ID recibido: {empleado_id}")  # Debería mostrar 3
     try:
-        detalle_prestamo = Prestamo.objects.get(empleado_id=empleado_id)
-        serializer = PrestamoSerializer(detalle_prestamo)
-        return Response(serializer.data)
-    except Prestamo.DoesNotExist:
-        return Response({"error": "Detalle de préstamo no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        detalles_prestamo = Prestamo.objects.filter(empleado_id=empleado_id)
+        if detalles_prestamo.exists():
+            serializer = PrestamoSerializer(detalles_prestamo, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({"error": "No hay detalles de préstamo para este empleado"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def get_empleados_con_registros(request):
