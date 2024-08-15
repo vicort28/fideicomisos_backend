@@ -26,6 +26,7 @@ env/
 ENV/
 env.bak/
 venv.bak/
+.env
 
 # IDEs and editors
 .vscode/
@@ -71,8 +72,8 @@ pipenv.lock
 .python-version
 
 # Docker
-*.dockerignore
-Dockerfile
+# *.dockerignore
+# Dockerfile
 docker-compose.yml
 
 # Coverage reports
