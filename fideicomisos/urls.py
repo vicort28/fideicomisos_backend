@@ -38,3 +38,5 @@ urlpatterns  = [
     path('seguros-vida/<int:seguro_vida_id>/actualizar/', views.actualizar_seguro_vida, name='actualizar_seguro_vida'),
     path('registrar_empleado/', views.registrar_empleado, name='registrar empleado'),
 ] 
+
+urlpatterns = [re_path(r'^fidecomisos_api/', include(urlpatterns))] 
