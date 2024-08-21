@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 from datetime import timedelta
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,6 +24,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-5nc$bz9+cl*37!jrxgpsfi#@-=6uv5o32n$uqz&&bb*yp-3b1)'
+
+# Cargar variables de entorno del archivo .env
+load_dotenv()
+
+# Obtener las variables de entorno
+API_KEY = os.getenv('API_KEY')
+API_URL = os.getenv('API_URL')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True

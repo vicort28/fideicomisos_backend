@@ -7,10 +7,9 @@ class EmpleadoSerializer(serializers.ModelSerializer):
     
     
     nombreCompleto = serializers.CharField(write_only=True, required=False)
-    telefono2 = serializers.CharField(write_only=True, required=False)
-    direccionGeneral = serializers.CharField(write_only=True, required=False)
-    fechaIngreso = serializers.DateField(write_only=True, required=False)
-    fechaNacimiento = serializers.DateField(write_only=True, required=False)
+    
+    
+    
 
     class Meta:
         model = Empleado
@@ -18,7 +17,7 @@ class EmpleadoSerializer(serializers.ModelSerializer):
             'id', 'numeroEmpleado', 'nombres', 'apellidoPaterno', 'apellidoMaterno', 
             'nombreCompleto', 'rfc', 'curp', 'telefono1', 'telefono2',
             'direccion', 'direccionGeneral', 'correo', 'domicilio', 
-            'fechaIngreso', 'fechaNacimiento'
+            'fechaIngreso', 'fechaNacimiento', 'jubilacionSolicitada' 
         ]
 
     def create(self, validated_data):
@@ -26,9 +25,7 @@ class EmpleadoSerializer(serializers.ModelSerializer):
        
     
         validated_data['domicilio'] = validated_data.pop('domicilio', '')
-        validated_data['unidad'] = validated_data.pop('direccionGeneral', '')
-        validated_data['fecha_ingreso'] = validated_data.pop('fechaIngreso', '')
-        validated_data['fecha_nacimiento'] = validated_data.pop('fechaNacimiento', '')
+        
         validated_data['nombre_completo'] = validated_data.pop('nombreCompleto', '')
         return super().create(validated_data)
 
@@ -37,7 +34,6 @@ class EmpleadoSerializer(serializers.ModelSerializer):
         
        
         instance.unidad = validated_data.pop('direccionGeneral', instance.unidad)
-        instance.fecha_ingreso = validated_data.pop('fechaIngreso', instance.fecha_ingreso)
         instance.fecha_nacimiento = validated_data.pop('direccionGeneral', instance.fecha_nacimiento)
         instance.nombre_completo = validated_data.pop('nombreCompleto', instance.nombre_completo)
 
@@ -54,6 +50,10 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         
 
 class PrestamoSerializer(serializers.ModelSerializer):
+    nombre_empleado = serializers.CharField(source='empleado.nombres', read_only=True)
+    apellido_paterno_empleado = serializers.CharField(source='empleado.apellidoPaterno', read_only=True)
+    apellido_materno_empleado = serializers.CharField(source='empleado.apellidoMaterno', read_only=True)
+
     class Meta:
         model = Prestamo
         fields = '__all__' 

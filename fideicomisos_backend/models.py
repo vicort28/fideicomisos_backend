@@ -5,19 +5,20 @@ class Empleado(models.Model):
     id = models.AutoField(primary_key=True)
     numeroEmpleado = models.CharField(max_length=50, unique=True)
     nombres = models.CharField(max_length=50)
-    direccion = models.TextField(max_length=100, default='')
+    direccion = models.TextField(max_length=100,blank=True, default='',  null=True)
     apellidoPaterno = models.CharField(max_length=100)
     apellidoMaterno = models.CharField(max_length=100)
-    telefono1 = models.CharField(max_length=15)
+    telefono1 = models.CharField(max_length=15, null=True, default='Sin registro', blank=True)
     telefono2 = models.CharField(max_length=15, blank=True, null=True) 
-    domicilio = models.CharField(max_length=200)
-    correo = models.EmailField()
-    unidad = models.CharField(max_length=100)
-    rfc = models.CharField(max_length=13)
-    curp = models.CharField(max_length=18)
-    fecha_ingreso = models.DateField(blank=True, null=True) 
-    fecha_nacimiento = models.DateField(blank=True, null=True) 
+    domicilio = models.CharField(max_length=200, blank=True)
+    correo = models.EmailField(blank=True, null=True)
+    direccionGeneral = models.CharField(max_length=100, blank=True, null=True)
+    rfc = models.CharField(max_length=13, blank=True,  null=True)
+    curp = models.CharField(max_length=18, blank=True,  null=True)
+    fechaIngreso = models.DateField(blank=True,  null=True) 
+    fechaNacimiento = models.DateField(blank=True, null=True) 
     nombre_completo = models.CharField(max_length=80, default='')
+    jubilacionSolicitada = models.BooleanField(default=False)
 
     def __str__(self):
         return f'{self.nombres} {self.apellidoPaterno} {self.apellidoMaterno}'
@@ -25,10 +26,10 @@ class Empleado(models.Model):
 
 class Prestamo(models.Model):
     OPCIONES_CANTIDAD = [
-        ('$5,000.00', '$5,000.00'),
-        ('$10,000.00', '$10,000.00'),
-        ('$15,000.00', '$15,000.00'),
-        ('$20,000.00', '$20,000.00'),
+        ('5,000.00', '5,000.00'),
+        ('10,000.00', '10,000.00'),
+        ('15,000.00', '15,000.00'),
+        ('20,000.00', '20,000.00'),
     ]
 
     OPCIONES_QUINCENAS = [
@@ -76,7 +77,8 @@ class GastosFunerarios(models.Model):
         return f"Gastos Funerarios para {self.empleado}"
 
 class PrestamoAprobado(models.Model):
-  
+    
+    empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, default='')
     cantidad = models.CharField(max_length=10)
     quincenas = models.IntegerField()
     pago_por_quincena = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -85,9 +87,10 @@ class PrestamoAprobado(models.Model):
     apellido_paterno_empleado = models.CharField(max_length=100, blank=True)
     apellido_materno_empleado = models.CharField(max_length=100, blank=True)       
     def __str__(self):
-        return f"Prestamo Aprobado para {self.empleado.nombre} {self.empleado.apellido_paterno}"
+        return f"Prestamo Aprobado para {self.empleado.nombres} {self.empleado.apellidoPaterno}"
     def save(self, *args, **kwargs):
-        self.nombre_empleado = self.empleado.nombre
-        self.apellido_paterno_empleado = self.empleado.apellido_paterno
-        self.apellido_materno_empleado = self.empleado.apellido_materno
+        self.nombre_empleado = self.empleado.nombres
+        self.apellido_paterno_empleado = self.empleado.apellidoPaterno
+        self.apellido_materno_empleado = self.empleado.apellidoMaterno
         super().save(*args, **kwargs)
+

@@ -2,7 +2,9 @@ from collections import Counter
 from datetime import timezone
 import traceback
 from django.http import JsonResponse
-from .models import Prestamo, SeguroVida, GastosFunerarios
+
+from fideicomisos.settings import API_KEY, API_URL
+from .models import Prestamo, PrestamoAprobado, SeguroVida, GastosFunerarios
 from .models import Empleado
 from rest_framework.decorators import api_view
 from .serializers import  PrestamoSerializer, EmpleadoSerializer, SeguroVidaSerializer, GastosFunerariosSerializer
@@ -21,6 +23,10 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from django.db import transaction
+import requests
+from django.http import JsonResponse
+from django.conf import settings
+from decimal import Decimal
 
 
 
@@ -224,30 +230,29 @@ def empleados_con_registros(request, *args, **kwargs):
 
 
 @api_view(['GET'])
-def obtener_detalles_seguro_vida_por_empleado(request, empleado_id, *args, **kwargs):
+def obtener_seguros_vida_por_empleado(request, empleado_id, *args, **kwargs):
     try:
-        detalle_seguro_vida = SeguroVida.objects.filter(empleado_id=empleado_id)
-        serializer = SeguroVidaSerializer(detalle_seguro_vida, many=True)
-        return Response(serializer.data)
-    except SeguroVida.DoesNotExist:
-        return Response({"error": "Detalle de seguro de vida no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        seguros_vida = SeguroVida.objects.filter(empleado_id=empleado_id)
+        
+        if seguros_vida.exists():
+            serializer = SeguroVidaSerializer(seguros_vida, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({"error": "No hay seguros de vida para este empleado"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
 
 
 @api_view(['GET'])
 def obtener_detalles_prestamo_por_empleado(request, empleado_id, *args, **kwargs):
-    try:
-        detalle_prestamo = Prestamo.objects.filter(empleado__id=empleado_id)
-        serializer = PrestamoSerializer(detalle_prestamo, many=True)
-        return Response(serializer.data)
-    except Prestamo.DoesNotExist:
-        return Response({"error": "Detalle de préstamo no encontrado"}, status=status.HTTP_404_NOT_FOUND)
-
-
-@api_view(['GET'])
-def obtener_detalles_prestamo_por_empleado(request, empleado_id, *args, **kwargs):
-    print(f"Empleado ID recibido: {empleado_id}")  # Debería mostrar 3
+    print(f"Empleado ID recibido: {empleado_id}")  # Para depuración
     try:
         detalles_prestamo = Prestamo.objects.filter(empleado_id=empleado_id)
+        
         if detalles_prestamo.exists():
             serializer = PrestamoSerializer(detalles_prestamo, many=True)
             return Response(serializer.data)
@@ -255,6 +260,7 @@ def obtener_detalles_prestamo_por_empleado(request, empleado_id, *args, **kwargs
             return Response({"error": "No hay detalles de préstamo para este empleado"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 def get_empleados_con_registros(request):
@@ -276,60 +282,68 @@ def eliminar_registro_seguro_vida(request, registro_id):
 @api_view(['GET'])
 def gastos_funerarios_view(request, empleado_id):
     try:
-        gastos_funerarios = GastosFunerarios.objects.filter(empleado_id=empleado_id)
-        serializer = GastosFunerariosSerializer(gastos_funerarios, many=True)
-        return Response(serializer.data)
-    except GastosFunerarios.DoesNotExist:
-        return Response({"error": "Detalles de gastos funerarios no encontrados"}, status=status.HTTP_404_NOT_FOUND)
+        detalles_gastos_funerarios = GastosFunerarios.objects.filter(empleado_id=empleado_id)
+        if detalles_gastos_funerarios.exists():
+            serializer = GastosFunerariosSerializer(detalles_gastos_funerarios, many=True)
+            return Response(serializer.data)
+        else:
+            return Response({"error": "No hay detalles de gastos funerarios para este empleado"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
+@csrf_exempt
+@api_view(['POST'])
+def aprobar_prestamo(request, prestamo_id):
+    if request.method == 'POST':
+        try:
+            prestamo = Prestamo.objects.get(id=prestamo_id)
+            if prestamo.aprobado:
+                return JsonResponse({'error': 'Este préstamo ya ha sido aprobado'}, status=400)
+            
+            prestamo.aprobado = True
+            prestamo.save()
+
+            prestamo_aprobado = PrestamoAprobado(
+                empleado=prestamo.empleado,
+                cantidad=prestamo.cantidad,
+                quincenas=prestamo.quincenas,
+            )
+            prestamo_aprobado.nombre_empleado = prestamo.empleado.nombres
+            prestamo_aprobado.apellido_paterno_empleado = prestamo.empleado.apellidoPaterno
+            prestamo_aprobado.apellido_materno_empleado = prestamo.empleado.apellidoMaterno
+            prestamo_aprobado.save()
+
+            return JsonResponse({'message': 'Préstamo aprobado correctamente.'})
+        except Prestamo.DoesNotExist:
+            return JsonResponse({'error': 'Préstamo no encontrado.'}, status=404)
+    else:
+        return JsonResponse({'error': 'Método no permitido.'}, status=405)
 
 
-# @csrf_exempt
-# @api_view(['POST'])
-# def aprobar_prestamo(request, prestamo_id):
-#     if request.method == 'POST':
-#         try:
-#             prestamo = Prestamo.objects.get(id=prestamo_id)
-#             if prestamo.aprobado:
-#                 return JsonResponse({'error': 'Este préstamo ya ha sido aprobado'}, status=400)
-#             prestamo.aprobado = True
-#             prestamo.save()
 
-#             prestamo_aprobado = PrestamoAprobado(
-#                 empleado=prestamo.empleado,
-#                 cantidad=prestamo.cantidad,
-#                 quincenas=prestamo.quincenas,
-#             )
-#             prestamo_aprobado.save()
-
-#             return JsonResponse({'message': 'Préstamo aprobado correctamente.'})
-#         except Prestamo.DoesNotExist:
-#             return JsonResponse({'error': 'Préstamo no encontrado.'}, status=404)
-#     else:
-#         return JsonResponse({'error': 'Método no permitido.'}, status=405)
-    
-# @api_view(['POST'])
-# def aprobar_prestamo_por_empleado(request, empleado_id):
-#     try:
-#         empleado = Empleado.objects.get(id=empleado_id)
-#         prestamo = Prestamo.objects.filter(empleado=empleado, aprobado=False).first()
-#         if prestamo:
-#             prestamo.aprobado = True
-#             prestamo.save()
-#             return Response({"message": "Préstamo aprobado correctamente"}, status=status.HTTP_200_OK)
-#         else:
-#             return Response({"message": "No hay préstamos pendientes para este empleado"}, status=status.HTTP_404_NOT_FOUND)
-#     except Empleado.DoesNotExist:
-#         return Response({"message": "Empleado no encontrado"}, status=status.HTTP_404_NOT_FOUND)
-
-    
-# @api_view(['GET'])
-# def obtener_registros_aprobados(request):
-#     prestamos_aprobados = Prestamo.objects.filter(aprobado=True)
-#     serializer = PrestamoSerializer(prestamos_aprobados, many=True)
-#     return Response(serializer.data)
+   
+@api_view(['POST'])
+def aprobar_prestamo_por_empleado(request, empleado_id):
+       try:
+           empleado = Empleado.objects.get(id=empleado_id)
+           prestamo = Prestamo.objects.filter(empleado=empleado, aprobado=False).first()
+           if prestamo:
+               prestamo.aprobado = True
+               prestamo.save()
+               return Response({"message": "Préstamo aprobado correctamente"}, status=status.HTTP_200_OK)
+           else:
+               return Response({"message": "No hay préstamos pendientes para este empleado"}, status=status.HTTP_404_NOT_FOUND)
+       except Empleado.DoesNotExist:
+           return Response({"message": "Empleado no encontrado"}, status=status.HTTP_404_NOT_FOUND)   
+   
+@api_view(['GET'])
+def obtener_registros_aprobados(request):
+       
+       prestamos_aprobados = Prestamo.objects.filter(aprobado=True)
+       serializer = PrestamoSerializer(prestamos_aprobados, many=True)
+       return Response(serializer.data)
 
 
 
@@ -359,3 +373,48 @@ def actualizar_seguro_vida(request, seguro_vida_id):
         serializer.save()
         return Response(serializer.data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# def obtener_empleado(request, id):
+#     api_url = 'https://ingenieria.sspechih.gob.mx/rh_api/consultar'
+#     api_key = '4b76b5af-1a50-4eca-8fa0-be514a8636bd'
+    
+#     headers = {
+#         'Content-Type': 'application/json',
+#         'X-API-KEY': api_key
+#     }
+
+#     response = requests.get(f'{api_url}/id/{id}', headers=headers)
+    
+#     if response.status_code == 200:
+#         return JsonResponse(response.json())
+#     else:
+#         return JsonResponse({'error': 'No se pudo obtener el empleado'}, status=response.status_code)
+    
+
+
+def buscar_empleado_por_nombre(request, nombreCompleto):
+    api_url = f"{API_URL}/nombre/{nombreCompleto}"
+    headers = {
+        'Content-Type': 'application/json',
+        'X-API-KEY': API_KEY,
+    }
+
+    response = requests.get(api_url, headers=headers)
+
+    if response.status_code == 200:
+        data = response.json()
+        return JsonResponse(data, safe=False)
+    else:
+        return JsonResponse({'error': 'No se pudo obtener la información del empleado'}, status=400)
+    
+@api_view(['POST'])
+def solicitar_jubilacion(request, empleado_id):
+    try:
+        empleado = Empleado.objects.get(id=empleado_id)
+        empleado.jubilacionSolicitada = True
+        empleado.save()
+        return Response({'success': True, 'message': 'Jubilación solicitada exitosamente'})
+    except Empleado.DoesNotExist:
+        return Response({'success': False, 'message': 'Empleado no encontrado'}, status=404)
+

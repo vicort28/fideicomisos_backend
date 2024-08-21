@@ -70,6 +70,8 @@ pipenv.lock
 # pyenv
 .python-version
 
+.env
+
 # Docker
 *.dockerignore
 Dockerfile
